@@ -1,0 +1,19 @@
+{
+  "params":
+  {
+    "local_server": "True",
+    "local_uri": "mysql://root:darshil@localhost:3306/codingthunder",
+    "prod_uri": "mysql://root:darshil@localhost:3306/codingthunder",
+    "ln_url": "https://www.linkedin.com/in/darshil-babariya-328418205",
+    "blog_name": "Babariya",
+    "blog_names": "Darshil",
+    "blog_j": "J",
+    "gmail": "darshilbabariya123445@gmial.com",
+    "password": "DARSHIL@9904",
+    "no_of_posts": 3,
+    "admin_user": "darshil",
+    "admin_password": "babariya",
+    "uploder_location":"C:\\Users\\HP\\PycharmProjects\\Flask-tut\\pythonProject"
+  }
+
+}
