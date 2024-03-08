@@ -8,6 +8,12 @@ from flask_mail import Mail
 import os
 import json
 import math
+from flask_wtf import FlaskForm
+from wtforms import StringField, SubmitField
+from wtforms.validators import DataRequired
+
+
+
 
 with open('config.json', 'r') as c:
     params = json.load(c)["params"]
@@ -113,36 +119,14 @@ def edit(num):
         post = Posts.query.filter_by(num=num).first()
         return render_template('edit.html',params=params,post=post)
 
-# @app.route("/")
-# def home():
-#     posts = Posts.query.filter_by().all()
-#     # number of post show to home page
-#     # [0:params['no_of_posts']]
-#     last = math.ceil(len(posts)/int(params['no_of_posts']))
-#     page = request.args.get('page')
-#     if(not str(page).isnumeric()):
-#         page = 1
-#         page = int(page)
-#         posts= posts[(page-1)*int(params['no_of_posts']):(page-1)*int(params['no_of_posts'])+(page-1)*int(params['no_of_posts'])]
-#         #pagination_logic
-#         #First
-#         if(page ==1):
-#             prev = "#"
-#             next = "/?page="+ str(page+1)
-#         elif(page == last):
-#             prev="/?page=" + str(page - 1)
-#             next = "#"
-#         else:
-#             prev = "/?page=" + str(page - 1)
-#             next="/?page" + str(page +1)
-#
-#     return render_template('index.html', params=params, posts=posts, prev=prev, next=next)
+
 
 @app.route("/")
 def home():
+    # Assuming you have form defined and initialized
+    form = SearchForm()
+
     posts = Posts.query.filter_by().all()
-    #     # number of post show to home page
-    #     # [0:params['no_of_posts']]
     last = math.ceil(len(posts) / int(params['no_of_posts']))
     page = request.args.get('page')
     if not str(page).isnumeric():
@@ -159,7 +143,8 @@ def home():
         prev = "/?page=" + str(page - 1)
         next_page = "/?page=" + str(page + 1)
 
-    return render_template('index.html', params=params, posts=posts, next=next_page, prev=prev)
+    return render_template('index.html', params=params, posts=posts, next=next_page, prev=prev, form=form)
+
 
 
 @app.route("/Home")
@@ -219,6 +204,39 @@ def service():
     return render_template('login.html', params=params)
 
 
+# ----->
+# serach methodss
+@app.context_processor
+def base():
+    form = SearchForm()
+    return dict(form=form)
+
+
+class SearchForm(FlaskForm):
+    search = StringField('Search', validators=[DataRequired()])
+    submit = SubmitField('Submit')
+
+
+@app.route("/search", methods=['GET', 'POST'])
+def search():
+    form = SearchForm()
+    posts=Posts.query
+    if form.validate_on_submit():
+        #get data form submitted form
+        post.search = form.search.data
+        # Query the Database
+        posts = posts.filter(Posts.content.like('%' + post.search + '%')).order_by(Posts.title).all()
+    #     session['search'] = post.search
+    # post.search= session.get('search')
+
+    return render_template('search.html', params=params,form=form, search =post.search,posts=posts)
+
+
+# -------->
+# @app.route("/post/<string:num>",methods=['GET'])
+# def post(num):
+#     post = Posts.query.filter_by(num=num).first_or_404()
+#     return render_template('post.html', post=post)
 
 
 app.run(debug=True)
