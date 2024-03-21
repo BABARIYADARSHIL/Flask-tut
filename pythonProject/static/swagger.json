@@ -1,0 +1,329 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "description": "Device Management APIs",
+      "version": "1.0.0",
+      "title": "Device Management APIs",
+      "license": {
+        "name": "MIT",  
+        "url": "https://opensource.org/licenses/MIT"
+      }
+    },
+    "tags": [
+        {
+          "name": "Products API",
+          "description": "Test API"
+        }
+      ],
+      "servers": [
+        {
+        "url": "http://91.107.200.91:6500/"
+        }
+    ],
+         
+    
+    "components": {
+        
+     "schemas": {
+         "TodoList": {
+             "type": "object",
+             "properties": {
+                 "name": {
+                 "type": "string"
+                 },
+                 "password": {
+                 "type": "string"
+                 },
+                 "contactno": {
+                 "type": "string"
+                 },
+                 "email": {
+                 "type": "string"
+                 },
+                 "companyname": {
+                 "type": "string"
+                 }
+             }
+         },
+         "loginapi": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+         },
+         "adddeviceapi": {  
+            "type" : "object",
+            "properties": {
+                
+                "device_name": {
+                    "type": "string"                    
+                },
+                "device_model": {
+                    "type": "string"
+                },
+                "device_id": {
+                    "type": "string"
+                }
+            }
+         },
+         
+
+         "upload": {
+            "type": "object",
+                "properties": {
+                    "file": {
+                    "type": "file"
+                    
+                    }                    
+                }
+         },
+         "adddevicedetails": {
+            "type": "object",
+                "properties": {
+                    "file": {
+                    "type": "file"                    
+                    },
+                    "device_model": {
+                        "type": "string"
+                    }                    
+                }
+         }
+    },
+    "securitySchemes": {
+        "bearerAuth": {
+          "type": "apiKey",            
+          "name": "token",
+          "in": "header"
+        }
+      }  
+
+    },
+  
+      
+    "paths":  {
+        
+     "/register": {
+         "post": {
+         "tags": [
+             "API For Registration"
+         ],
+         "summary": "Register",
+         "requestBody": {
+         "description": "Registration",
+         "required": true,
+         "content": {
+             "application/json": {
+             "schema": {
+                 "$ref": "#/components/schemas/TodoList"
+                 }
+             }
+         }
+         },
+         "responses": {
+             "200": {
+                 "description": "OK",
+                 "schema": {
+                 "$ref": "#/components/schemas/TodoList"
+                 }
+                },
+             "404": {
+                 "description": "NOT FOUND",
+                 "schema": {
+                 "$ref": "#/components/schemas/TodoList"
+                 }
+                }
+            }
+            }         
+        },
+        "/login": {
+            "post": {
+                "tags": [
+                    "API For Login" 
+                ],
+                "summary": "Login",
+                "requestBody": {
+                    "description": "Login",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/loginapi"
+                            }
+                        }                        
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/components/schemas/TodoList"                                                        
+                        }
+                    },
+                    "404": {
+                        "description": "NOT FOUND",
+                        "schema": {
+                            "$ref": "#/components/schemas/TodoList"
+                        }
+                    }
+                }
+            }
+        },
+        "/adddevice": {
+            "post": {
+                "tags": [
+                    "API For Add Device"
+                ],               
+                "summary": "Add Device Detail",
+                
+                "security": [
+                    {
+                      "bearerAuth": []
+                    }
+                  ],  
+                            
+                "requestBody": {                    
+                    "description": "Add Device",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/adddeviceapi"
+                            }
+                        } 
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/components/schemas/TodoList"                                                        
+                        }
+                    },
+                    "404": {
+                        "description": "NOT FOUND",
+                        "schema": {
+                            "$ref": "#/components/schemas/TodoList"
+                        }
+                    }
+                }                 
+            }            
+        },
+        "/showdevice": {
+            "get": {
+                "tags": [
+                    "API For Show Devices"
+                ],
+                "summary": "Show Device Detail",
+                
+                "security": [
+                    {
+                      "bearerAuth": []
+                    }
+                  ], 
+                  
+                  "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/components/schemas/TodoList"                                                        
+                        }
+                    },
+                    "404": {
+                        "description": "NOT FOUND",
+                        "schema": {
+                            "$ref": "#/components/schemas/TodoList"
+                        }
+                    }
+                } 
+            }
+        },
+        "/uploadexcel": {
+            "post": {
+                "tags": [
+                    "UPLOAD EXCLE"
+                ],
+                "summary": "Add Device Details From Excle File",
+                "security": [
+                    {
+                      "bearerAuth": []
+                    }
+                  ],  
+                     
+                "requestBody": {
+                    "description": "Add Excle File",            
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/upload"
+                            }
+                        }
+                    }
+              },
+              "responses": {
+                "200": {
+                    "description": "OK",
+                    "schema": {
+                    "$ref": "#/components/schemas/TodoList"
+                    }
+                },
+                "404": {
+                    "description": "NOT FOUND",
+                    "schema": {
+                    "$ref": "#/components/schemas/TodoList"
+                    }
+            }
+            }
+            }
+
+        },
+        "/add_device_details": {
+            "post": {
+                "tags": [
+                    "UPLOAD EXCLE in Device model"
+                ],
+                "summary": "Add Device Details From Excle File",
+                "security": [
+                    {
+                      "bearerAuth": []
+                    }
+                  ],  
+                     
+                "requestBody": {
+                    "description": "Add Excle File",            
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/adddevicedetails"
+                            }
+                        }
+                    }
+
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                        "$ref": "#/components/schemas/TodoList"
+                        }
+                    },
+                    "404": {
+                        "description": "NOT FOUND",
+                        "schema": {
+                        "$ref": "#/components/schemas/TodoList"
+                        }
+                }
+                }
+            }
+        } 
+
+    }  
+}     
+
+

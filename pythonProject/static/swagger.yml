@@ -1,0 +1,246 @@
+openapi: 3.0.0
+info:
+  version: 1.0.0
+  title: Device Management User APIs
+  description: Web App with Python Flask
+
+tags:
+  - name: Authentication
+    description: Authentication apis
+  - name: Device
+    description: Device apis
+
+paths:
+  /register:
+    post:
+      summary: User Registration
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+                message:
+                  type: string
+              required:
+                - username
+                - password
+                - phone
+                - email
+                - message
+      responses:
+        '201':
+          description: Registration successful
+        '202':
+          description: Invalid email address
+  /login:
+    post:
+      summary: User Login
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+         application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: TINYTEXT
+                password:
+                  type: VARCHAR
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: Login successfully
+        '201':
+          description: Invalid Password or Email is not registered
+        '500':
+          description: Missing credentials or Internal Server Error
+
+  /Addpost:
+    post:
+      summary: Add Post
+      tags:
+        - Authentication
+      security:
+        - jwt_auth: []  
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                tagline:
+                  type: string
+                slug:
+                  type: string
+                content:
+                  type: string
+              required:
+                - title
+                - tagline
+                - slug
+                - content
+      responses:
+        '200':
+          description: Post added successfully
+        '201':
+          description: Missing required fields or post ID already exists
+        '500':
+          description: Internal Server Error
+
+  /edit/{num}:
+    put:
+      summary: edit
+      tags:
+      - Authentication
+
+      security:
+        - jwt_auth: []
+      parameters:
+        - in: path
+          name: num
+          required: true
+          schema:
+            type: string
+          description: Post number to edite
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                tagline:
+                  type: string
+                slug:
+                  type: string
+                content:
+                  type: string
+              required:
+                - title
+                - tagline
+                - slug
+                - content
+      responses:
+        '200':
+          description: Data cange successfully
+        '203':
+          description: No file provided or Invalid file format.
+        '500':
+          description: Internal Server Error
+
+  /home:
+    post:
+      summary: Show Posts
+      tags:
+        - Authentication
+      security:
+        - jwt_auth: []
+      responses:
+        '200':
+          description: Devices found
+        '404':
+          description: No Devices Found
+
+  /search:
+    post:
+      summary: Search
+      tags:
+       - Authentication
+      security:
+        - jwt_auth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                search:
+                  type: string
+                
+              required:
+                - search
+      responses:
+        '200':
+          description: Device updated successfully        
+        '201':
+          description: Missing required fields or Device ID already exists or Device not found or does not belong to the current user          
+        '400':
+          description: Failed to update device
+
+  /delete/{num}:
+    delete:
+      summary: Delete Posts
+      tags:
+        - Authentication
+      security:
+        - jwt_auth: []
+      parameters:
+        - in: path
+          name: num
+          required: true
+          schema:
+            type: string
+          description: Post number to delete
+      requestBody:
+        required: true
+        content:
+         application/x-www-form-urlencoded:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Post deleted successfully
+        '401':
+          description: Unauthorized
+  /logout:
+    post:
+      summary: logout
+      tags:
+        - Authentication
+      security:
+        - jwt_auth: []
+      responses:
+        '200':
+          description: Successfully logged out
+        '401':
+          description: Unauthorized
+
+  
+
+security:
+  - jwt_auth: []
+
+externalDocs:
+  description: Find out more about Swagger
+  url: 127.0.0.1:5000/api/docs
+servers:  
+  - url: http://127.0.0.1:5000
+
+components:
+  securitySchemes:
+    jwt_auth:
+      type: apiKey
+      name : token
+      in: header

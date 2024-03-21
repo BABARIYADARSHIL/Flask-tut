@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, session, redirect
+import requests
+from flask import Flask, render_template, request, session, redirect,url_for, jsonify,make_response, abort
+from flask import flash
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import  FileStorage
-# from werkzeug import secure_filename
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_mail import Mail
 import os
 import json
@@ -11,201 +12,271 @@ import math
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
+from functools import wraps
+import jwt
+from flask import current_app
+from jwt import encode
+from flask import jsonify
+import requests
+from flask_cors import CORS
+from sqlalchemy import or_
+from flask_swagger_ui import get_swaggerui_blueprint
 
-
-
-
+JWT_EXPIRATION_DELTA = timedelta(hours=1)
 with open('config.json', 'r') as c:
     params = json.load(c)["params"]
 
-local_server = True
 app = Flask(__name__)
-app.secret_key = 'super-secret-key'
-app.config['UPLODE_FOLDER'] = params['uploder_location']
-app.config.update(
-    MAIL_SERVER = 'smtp.gmail.com',
-    MAIL_PORT = '465',
-    MAIL_USE_SSL = True,
-    MAIL_USERNAME =params['gmail'],
-    MAIL_PASSWORD=params['password']
+
+
+SWAGGER_URL = '/api/docs'  # URL for exposing Swagger UI (without trailing '/')
+API_URL = '/static/swagger.yml'  # Our API url (can of course be a local resource)
+
+
+
+
+# Call factory function to create our blueprint
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,  # Swagger UI static files will be mapped to '{SWAGGER_URL}/dist/'
+    API_URL,
+    config={  # Swagger UI config overrides
+        'app_name': "User API "
+    },
+    # oauth_config={  # OAuth config. See https://github.com/swagger-api/swagger-ui#oauth2-configuration .
+    #    'clientId': "your-client-id",
+    #    'clientSecret': "your-client-secret-if-required",
+    #    'realm': "your-realms",
+    #    'appName': "your-app-name",
+    #    'scopeSeparator': " ",
+    #    'additionalQueryStringParams': {'test': "hello"}
+    # }
 )
-# mail = Mail(app)
-if(local_server):
-    app.config['SQLALCHEMY_DATABASE_URI'] = params['local_uri']
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = params['prod_uri']
 
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:darshil@localhost:3306/codingthunder'
+app.register_blueprint(swaggerui_blueprint, url_prefix = SWAGGER_URL)
 
+CORS(app)
+app.secret_key = 'super-secret-key'
+app.config['SECRET_KEY'] = 'DARSHIL'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:darshil@localhost:3306/server'
 db = SQLAlchemy(app)
 
-class Contact(db.Model):
+CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5500"}})
+
+
+
+
+
+
+
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("token")        
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            print(data)
+            current_user=data['user']
+            # print(current_user)
+        except:
+            return jsonify({'message': 'Token is invalid!'}), 401
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+class Register(db.Model):
     num = db.Column(db.Integer, primary_key=True)
-    firstName = db.Column(db.String(80), nullable=False)
-    phone_num = db.Column(db.String(12), unique=True, nullable=False)
-    msg = db.Column(db.String(120), nullable=True)
-    date = db.Column(db.String(12), nullable=True)
-    email = db.Column(db.String(20), unique=True, nullable=False)
+    username= db.Column(db.String(80), nullable=False)
+    password = db.Column(db.String(80), nullable=True)
+    phone = db.Column(db.String(20), nullable=False)
+    email = db.Column(db.String(25), nullable=False)
+    message = db.Column(db.String(80), nullable=True)
+    date = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
-class Posts(db.Model):
-     num = db.Column(db.Integer, primary_key=True)
-     title = db.Column(db.String(80), nullable=False)
-     slug = db.Column(db.String(21), unique=True, nullable=False)
-     content = db.Column(db.String(120), nullable=False)
-     tagline = db.Column(db.String(120), nullable=False)
-     date = db.Column(db.String(12), nullable=True)
+    def __repr__(self):
+        return f"Register('{self.username}', '{self.email}')"
 
-@app.route("/contact", methods=['GET', 'POST'])
-def contact():
-    if(request.method == 'POST'):
 
-        '''add entry data'''
-        name = request.form.get('name')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        username = Register.query.filter_by(username=username, password=password).first()
+    
+        if username:
+            token = jwt.encode({'user': username.num, 'exp': datetime.utcnow() + timedelta(hours=5)}, app.config['SECRET_KEY'])
+            # token = jwt.encode(payload, app.config['SECRET_KEY'],algorithm='HS256')
+            return jsonify({'message': 'Login successful', 'token': token}), 200
+        else:
+            return jsonify({'error':'Invalide username or password'}),401
+
+    return "Method not Allowed", 405
+
+
+@app.route('/protected_route')
+@token_required
+def protected_route():
+    # This route is protected and requires a valid token
+    return "This is a protected route"
+
+
+
+@app.route('/register' ,methods = ['GET','POST'])
+def register_page():
+    print(request.method)
+    if request.method == 'POST':
+        print(request.method)
+        username = request.form.get('username')
+        password = request.form.get('password')
         email = request.form.get('email')
-        phone = request.form.get('phone')
         message = request.form.get('message')
-
-        entry = Contact(firstName=name, phone_num=phone, msg=message, date=datetime.now(), email=email)
+        phone = request.form.get('phone')
+        entry = Register(username=username,password=password,email=email,message=message,date=datetime.now(),phone=phone)
         db.session.add(entry)
         db.session.commit()
-        # mail.send_message('new message from' + name,
-        #                   sender = email,
-        #                   recipients=[params['gmail']],
-        #                   body=str(message)+"\n"+ str(phone)
-        #                   )
-
-    return render_template('index1.html', params=params)
-
-@app.route("/dashbord",methods=['GET', 'POST'])
-def dashbord():
-    if('user' in session and session['user'] == params['admin_user']):
-        posts = Posts.query.all()
-        return render_template('dashbord.html', params=params,posts=posts)
-
-    if request.method =='POST':
-        username = request.form.get('uname')
-        userpass = request.form.get('pass')
-        if(username == params['admin_user'] and userpass == params['admin_password']):
-            # set the session variable
-            session['user'] = username
-            posts = Posts.query.all()
-        return render_template('dashbord.html',params=params,posts=posts)
-
-    return render_template('login.html',params=params)
-
-@app.route("/edit/<string:num>", methods=['GET', 'POST'])
-def edit(num):
-    if ('user' in session and session['user'] == params['admin_user']):
-        if request.method == 'POST':
-            box_title = request.form.get('title')
-            tline= request.form.get('tline')
-            slug = request.form.get('slug')
-            content = request.form.get('content')
-            date = datetime.now()
-
-            if num =='0':
-                post = Posts(title=box_title, slug=slug, content=content, tagline=tline,date=date)
-                db.session.add(post)
-                db.session.commit()
-            else:
-                post = Posts.query.filter_by(num=num).first()
-                post.title = box_title
-                post.slug = slug
-                post.content = content
-                post.tagline = tline
-                post.date = date
-                db.session.commit()
-                return redirect('/edit/'+num)
-        post = Posts.query.filter_by(num=num).first()
-        return render_template('edit.html',params=params,post=post)
+        return "Registered successfully"
+    print(request.method)
+    return 'Missing required fields!', 400
 
 
 
-@app.route("/")
-def home():
-    # Assuming you have form defined and initialized
-    form = SearchForm()
+class Posts(db.Model):
+    num = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(80), nullable=False)
+    slug = db.Column(db.String(21), unique=True, nullable=False)
+    content = db.Column(db.String(120), nullable=False)
+    tagline = db.Column(db.String(120), nullable=False)
+    date = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
-    posts = Posts.query.filter_by().all()
-    last = math.ceil(len(posts) / int(params['no_of_posts']))
-    page = request.args.get('page')
-    if not str(page).isnumeric():
-        page = 1
-    page = int(page)
-    posts = posts[(page - 1) * int(params['no_of_posts']): (page - 1) * int(params['no_of_posts']) + int(params['no_of_posts'])]
-    if page == 1:
-        prev = "#"
-        next_page = "/?page=" + str(page + 1)
-    elif page == last:
-        prev = "/?page=" + str(page - 1)
-        next_page = "#"
+
+@app.route('/Addpost', methods=['GET','POST'])
+@token_required 
+def Addpost(current_user):
+    print(request.method)
+    if request.method == 'POST':
+        title = request.form.get('title')
+        slug = request.form.get('slug')
+        content = request.form.get('content')
+        tagline = request.form.get('tagline')
+        date = datetime.now()
+            # Assuming you have a model named Posts imported
+        entry = Posts(title=title, slug=slug, content=content, tagline=tagline, date=date)
+        db.session.add(entry)
+        db.session.commit()
+
+        return 'Data added to the database successfully!', 200
     else:
-        prev = "/?page=" + str(page - 1)
-        next_page = "/?page=" + str(page + 1)
+        return 'Missing required fields!', 400
 
-    return render_template('index.html', params=params, posts=posts, next=next_page, prev=prev, form=form)
+@app.route("/edit/<string:num>", methods=['GET', 'PUT'])
+@token_required
+def edit(current_user, num):
+    print(request.method)
+    # if 'username' in session:
+    if request.method == 'PUT':
+        title = request.form.get('title')
+        tagline = request.form.get('tagline')
+        slug = request.form.get('slug')
+        content = request.form.get('content')
+        date = datetime.now()
+
+        post = Posts.query.filter_by(num=num).first()
+        if post:
+            post.title = title
+            post.slug = slug
+            post.content = content
+            post.tagline = tagline
+            post.date = date
+            db.session.commit()
+            return jsonify({'message': 'Post updated successfully'})
+        else:
+            return jsonify({'error': 'Post not found'})
+
+    elif request.method == 'GET':
+        post = Posts.query.filter_by(num=num).first()
+        if post:
+            post_data = {
+                'title': post.title,
+                'slug': post.slug,
+                'content': post.content,
+                'tagline': post.tagline,
+                'date': post.date.strftime('%Y-%m-%d %H:%M:%S') if post.date else None
+            }
+            return jsonify({'post': post_data})
+        else:
+            return jsonify({'error': 'Post not found'})
+    return jsonify({'error': 'Unauthorized access'})
+
+
+@app.route('/home', methods=['GET', 'POST'])
+def home():
+    form = SearchForm()
+    if 'username':
+        page = request.args.get('page', 1, type=int)
+        limit = request.args.get('limit', 100, type=int)
+
+        # Calculate start and end indices for pagination
+        start_index = (page - 1) * limit
+        end_index = start_index + limit
+
+        # Query posts for the requested page
+        posts = Posts.query.offset(start_index).limit(limit).all()
+
+        
+        # posts = Posts.query.all()
+        post_list = []
+        for post in posts:
+            post_data = {
+            'num':post.num,
+            'title':post.title,
+            'date':post.date,
+            'content':post.content
+            }
+            post_list.append(post_data)
+            total_post = Posts.query.count()
+            print(total_post)
+        return jsonify({"post_list":post_list, "total_post":total_post})
+    return "Unauthorized", 401
+
+
+@app.route('/')
+def home_page():
+    return render_template('index.html')
 
 
 
-@app.route("/Home")
-def current():
-    return render_template('index.html', params=params)
-
-
-
-@app.route("/uploder", methods=['GET','POST'])
-def uploder():
-    if ('user' in session and session['user'] == params['admin_user']):
-        if(request.method == 'POST'):
-            f= request.files['file']
-            f.save(os.path.join(app.config['UPLODE_FOLDER'], secure_filename(f.filename) ))
-            return "uplode successfully"
-
-@app.route("/logout")
+@app.route("/logout", methods=["post","get"])
 def logout():
-    session.pop('user')
-    return redirect('/dashbord')
+    session.pop('username', None)
+    session.clear()
+    return "logout successfuly"
+    # return redirect('/login')
 
-@app.route("/delete/<string:num>", methods=['GET', 'POST'])
-def delete(num):
-    if ('user' in session and session['user'] == params['admin_user']):
+@app.route("/delete/<string:num>", methods=["GET","POST","DELETE"])
+@token_required
+def delete(current_user,num):
+    if 'username':
         post= Posts.query.filter_by(num=num).first()
         db.session.delete(post)
         db.session.commit()
-    return redirect('/dashbord')
+        return  "successfully deleted the post with number" + num
+    else:
+        return "Uanauthorized", 401
 
 
-@app.route("/post")
-def post():
-
-    return render_template('post.html', params=params, post=post)
-
-@app.route("/post/<string:post_slug>",methods=['GET'])
-def post_route(post_slug):
-     post= Posts.query.filter_by(slug=post_slug).first()
-     return render_template('post.html',params=params, post=post)
-
-@app.route("/blog-single")
-def blogsinge():
-    return render_template('blog-single.html', params=params, post=post)
+@app.route('/post', methods=["POST","GET"])
+def get_posts():
+    posts=Posts.query.all()
+    return posts
 
 
-
-@app.route("/pricing")
-def pricing():
-    return render_template('pricing.html', params=params)
-
-@app.route("/project")
-def project():
-    return render_template('project.html', params=params)
-
-@app.route("/service")
-def service():
-    return render_template('login.html', params=params)
-
-
-# ----->
-# serach methodss
 @app.context_processor
 def base():
     form = SearchForm()
@@ -213,30 +284,39 @@ def base():
 
 
 class SearchForm(FlaskForm):
-    search = StringField('Search', validators=[DataRequired()])
-    submit = SubmitField('Submit')
+    search = StringField('search', validators=[DataRequired()])
+    submit = SubmitField('submit')
 
 
-@app.route("/search", methods=['GET', 'POST'])
-def search():
-    form = SearchForm()
-    posts=Posts.query
-    if form.validate_on_submit():
-        #get data form submitted form
-        post.search = form.search.data
-        # Query the Database
-        posts = posts.filter(Posts.content.like('%' + post.search + '%')).order_by(Posts.title).all()
-    #     session['search'] = post.search
-    # post.search= session.get('search')
+    
+@app.route('/search', methods=["POST", "GET"])
+@token_required
+def search(current_user):
+    # posts= Posts.query.all()
+    search_term = request.json.get('search')
+    print(search_term)
+    posts = Posts.query.filter(or_(Posts.content.like(f'%{search_term}%'), Posts.title.like(f'%{search_term}%'))).order_by(Posts.num).all()
+    
+    # Convert Posts objects to dictionaries
+    posts_data = []
+    for post in posts:
+        posts_data.append({
+            'num':post.num,
+            'title':post.title,
+            'date':post.date,
+            'content':post.content
+            # Add other fields as needed
+        })
 
-    return render_template('search.html', params=params,form=form, search =post.search,posts=posts)
+    for post_data in posts_data:
+        print(post_data)
+    print(posts_data)
+    return jsonify(posts_data)
 
 
-# -------->
-# @app.route("/post/<string:num>",methods=['GET'])
-# def post(num):
-#     post = Posts.query.filter_by(num=num).first_or_404()
-#     return render_template('post.html', post=post)
 
 
-app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
+# if __name__ == "__main__":
+#     app.run(host="127.0.0.1",port=5500)
